@@ -17,7 +17,7 @@
     - HUBSPOT_CLIENT_SECRET=your-client-secret
 5. Run the server:
     - `cd backend`
-    - `python -m venv .venv`
+    - `python3 -m venv .venv`
     - `source .venv/bin/activate`
     - `pip install -r requirements.txt` *Note: Python version is 3.11.9*
     - `uvicorn backend.main:app --reload`
