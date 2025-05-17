@@ -5,7 +5,10 @@ import os
 from datetime import datetime
 from typing import Dict, List, Optional
 from urllib.parse import urlencode
+from dotenv import load_dotenv
 import dateutil.parser
+
+load_dotenv()
 
 import aiohttp
 from fastapi import HTTPException, Request
@@ -137,6 +140,8 @@ async def get_items_hubspot(credentials_str: str) -> List[IntegrationItem]:
     """
     Fetch contacts and companies from HubSpot and return them as IntegrationItems.
     """
+    print("\n=== FETCHING HUBSPOT DATA ===")
+    
     credentials = json.loads(credentials_str)
     access_token = credentials["access_token"]
     
@@ -151,7 +156,7 @@ async def get_items_hubspot(credentials_str: str) -> List[IntegrationItem]:
             }
             async with session.get(f"{HUBSPOT_API_BASE}/{endpoint}", headers=headers) as response:
                 if response.status == 401 and credentials.get("refresh_token"):
-                    # Token expired, refresh it
+                    print("Token expired, refreshing...")
                     new_tokens = await refresh_access_token(credentials["refresh_token"])
                     headers["Authorization"] = f"Bearer {new_tokens['access_token']}"
                     async with session.get(f"{HUBSPOT_API_BASE}/{endpoint}", headers=headers) as retry_response:
@@ -165,13 +170,22 @@ async def get_items_hubspot(credentials_str: str) -> List[IntegrationItem]:
         return dateutil.parser.parse(date_str)
 
     # Fetch contacts
+    print("\n--- Fetching Contacts ---")
     contacts_response = await make_request("crm/v3/objects/contacts")
+    print(f"Found {len(contacts_response.get('results', []))} contacts")
+    
     for contact in contacts_response.get("results", []):
+        name = f"{contact['properties'].get('firstname', '')} {contact['properties'].get('lastname', '')}".strip()
+        print(f"Contact: {name}")
+        print(f"  ID: {contact['id']}")
+        print(f"  Created: {contact['createdAt']}")
+        print(f"  Updated: {contact['updatedAt']}")
+        
         items.append(
             IntegrationItem(
                 id=contact["id"],
                 type="contact",
-                name=f"{contact['properties'].get('firstname', '')} {contact['properties'].get('lastname', '')}".strip(),
+                name=name,
                 creation_time=parse_datetime(contact["createdAt"]),
                 last_modified_time=parse_datetime(contact["updatedAt"]),
                 url=f"https://app.hubspot.com/contacts/{contact['id']}",
@@ -179,18 +193,33 @@ async def get_items_hubspot(credentials_str: str) -> List[IntegrationItem]:
         )
 
     # Fetch companies
+    print("\n--- Fetching Companies ---")
     companies_response = await make_request("crm/v3/objects/companies")
+    print(f"Found {len(companies_response.get('results', []))} companies")
+    
     for company in companies_response.get("results", []):
+        name = company["properties"].get("name", "Unnamed Company")
+        print(f"Company: {name}")
+        print(f"  ID: {company['id']}")
+        print(f"  Created: {company['createdAt']}")
+        print(f"  Updated: {company['updatedAt']}")
+        
         items.append(
             IntegrationItem(
                 id=company["id"],
                 type="company",
-                name=company["properties"].get("name", "Unnamed Company"),
+                name=name,
                 creation_time=parse_datetime(company["createdAt"]),
                 last_modified_time=parse_datetime(company["updatedAt"]),
                 url=f"https://app.hubspot.com/companies/{company['id']}",
             )
         )
+
+    print("\n=== SUMMARY ===")
+    print(f"Total items fetched: {len(items)}")
+    print(f"Contacts: {len([i for i in items if i.type == 'contact'])}")
+    print(f"Companies: {len([i for i in items if i.type == 'company'])}")
+    print("==============\n")
 
     return items
 
