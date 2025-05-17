@@ -39,7 +39,6 @@ async def authorize_hubspot(user_id: str, org_id: str) -> Dict[str, str]:
     if not HUBSPOT_CLIENT_ID or not HUBSPOT_CLIENT_SECRET:
         raise HTTPException(status_code=500, detail="HubSpot client configuration is missing")
 
-    # Store user_id and org_id in Redis for the callback
     state = f"{user_id}:{org_id}"
     await redis_client.setex(f"hubspot_state:{state}", 3600, "1")  # Expires in 1 hour
 
