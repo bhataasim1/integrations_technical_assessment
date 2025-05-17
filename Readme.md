@@ -26,3 +26,13 @@
     - `npm install`
     - `npm start`
 7. Go to `http://localhost:3000` to test the integration.
+
+
+## steps to downgrade python version
+if there is any existing .venv in `/backend` folder, delete it.
+
+- Install pyenv using the instructions here: https://github.com/pyenv/pyenv#installation
+- Install python 3.11.9 using pyenv: `pyenv install 3.11.9`
+- Now you can set the python version globally or locally in the project.
+    - Locally: `pyenv local 3.11.9` (in the project folder)
+    - Globally: `pyenv global 3.11.9` (in the system)
