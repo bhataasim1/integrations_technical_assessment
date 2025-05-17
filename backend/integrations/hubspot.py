@@ -5,6 +5,7 @@ import os
 from datetime import datetime
 from typing import Dict, List, Optional
 from urllib.parse import urlencode
+import dateutil.parser
 
 import aiohttp
 from fastapi import HTTPException, Request
@@ -13,10 +14,17 @@ from redis_client import redis_client
 from .integration_item import IntegrationItem
 
 # HubSpot API configuration
-HUBSPOT_CLIENT_ID = os.getenv("HUBSPOT_CLIENT_ID", "ed5ce25e-18ae-477e-bd0f-6e129defcd3f")
-HUBSPOT_CLIENT_SECRET = os.getenv("HUBSPOT_CLIENT_SECRET", "ea9b2c0f-8fdb-4637-bf66-a58fc13ec461")
+HUBSPOT_CLIENT_ID = os.getenv("HUBSPOT_CLIENT_ID")
+HUBSPOT_CLIENT_SECRET = os.getenv("HUBSPOT_CLIENT_SECRET")
 HUBSPOT_REDIRECT_URI = os.getenv("HUBSPOT_REDIRECT_URI", "http://localhost:8000/integrations/hubspot/oauth2callback")
-HUBSPOT_SCOPES = ["contacts", "crm.objects.contacts.read", "crm.objects.companies.read"]
+HUBSPOT_SCOPES = [
+    "crm.objects.companies.read",
+    "crm.objects.contacts.read",
+    "crm.objects.contacts.write",
+    "crm.schemas.contacts.read",
+    "crm.schemas.contacts.write",
+    "oauth"
+]
 HUBSPOT_AUTH_URL = "https://app.hubspot.com/oauth/authorize"
 HUBSPOT_TOKEN_URL = "https://api.hubapi.com/oauth/v1/token"
 HUBSPOT_API_BASE = "https://api.hubapi.com"
@@ -152,6 +160,10 @@ async def get_items_hubspot(credentials_str: str) -> List[IntegrationItem]:
                     raise HTTPException(status_code=response.status, detail="Failed to fetch HubSpot data")
                 return await response.json()
 
+    # Helper function to parse ISO datetime
+    def parse_datetime(date_str: str) -> datetime:
+        return dateutil.parser.parse(date_str)
+
     # Fetch contacts
     contacts_response = await make_request("crm/v3/objects/contacts")
     for contact in contacts_response.get("results", []):
@@ -160,8 +172,8 @@ async def get_items_hubspot(credentials_str: str) -> List[IntegrationItem]:
                 id=contact["id"],
                 type="contact",
                 name=f"{contact['properties'].get('firstname', '')} {contact['properties'].get('lastname', '')}".strip(),
-                creation_time=datetime.fromtimestamp(int(contact["createdAt"]) / 1000),
-                last_modified_time=datetime.fromtimestamp(int(contact["updatedAt"]) / 1000),
+                creation_time=parse_datetime(contact["createdAt"]),
+                last_modified_time=parse_datetime(contact["updatedAt"]),
                 url=f"https://app.hubspot.com/contacts/{contact['id']}",
             )
         )
@@ -174,8 +186,8 @@ async def get_items_hubspot(credentials_str: str) -> List[IntegrationItem]:
                 id=company["id"],
                 type="company",
                 name=company["properties"].get("name", "Unnamed Company"),
-                creation_time=datetime.fromtimestamp(int(company["createdAt"]) / 1000),
-                last_modified_time=datetime.fromtimestamp(int(company["updatedAt"]) / 1000),
+                creation_time=parse_datetime(company["createdAt"]),
+                last_modified_time=parse_datetime(company["updatedAt"]),
                 url=f"https://app.hubspot.com/companies/{company['id']}",
             )
         )
